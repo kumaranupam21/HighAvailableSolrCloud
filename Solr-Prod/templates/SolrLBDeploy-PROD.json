@@ -1,0 +1,156 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": {
+      "type": "string"
+    },
+    "deploymentId": {
+      "type": "string",
+      "metadata": {
+        "Description": "This is the Resource Prefix"
+      }
+    },
+    "vmbasename": {
+      "type": "string",
+      "defaultValue": "GL"
+    },
+
+    "loadBalancerName": {
+      "type": "string",
+      "defaultValue": "xxxxxxlb01"
+    },
+    "numberOfInstances": {
+      "type": "int",
+      "defaultValue": 3,
+      "minValue": 2,
+      "maxValue": 5,
+      "metadata": {
+        "description": "Number of VMs to deploy, limit 5 since this sample is using a single storage account"
+      }
+    },
+
+    "vnetName": {
+      "type": "string"
+    },
+    "resourceTags": {
+      "type": "object",
+      "defaultValue": {
+        "Environment": "Prod",
+        "Name": "PROD"
+      }
+    },
+    "subnetName": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "securityGroupName": "[concat(parameters('deploymentId'), 'SLR', 'NSG01')]",
+    "subnetRef": "[resourceId('Microsoft.Network/virtualNetworks/subnets', parameters('vnetName'), parameters('subnetName'))]",
+    "dnsname": "[concat(parameters('deploymentId'), parameters('vmbasename'))]",
+    "loadBalancerBackendAddressPool": "[concat(parameters('loadBalancerName'),'BP01')]",
+    "loadBalancerFrontendIP": "[concat(parameters('loadBalancerName'),'FE01')]",
+    "loadBalancerProbe": "[concat(parameters('loadBalancerName'),'PRB01')]",
+    "loadBalancingRule": "[concat(parameters('loadBalancerName'),'RULE01')]"
+  },
+  "resources": [
+    {
+      "apiVersion": "2020-06-01",
+      "type": "Microsoft.Network/networkInterfaces",
+      "name": "[concat(variables('dnsname'),copyindex(1), 'NIC01')]",
+      "tags": "[parameters('resourceTags')]",
+      "location": "[parameters('location')]",
+      "copy": {
+        "name": "nicLoop",
+        "count": "[parameters('numberOfInstances')]"
+      },
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "privateIPAllocationMethod": "Dynamic",
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              },
+              "loadBalancerBackendAddressPools": [
+                {
+                  "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', parameters('loadBalancerName'), variables('loadBalancerBackendAddressPool'))]"
+                }
+              ]
+            }
+          }
+        ],
+        "networkSecurityGroup": {
+          "id": "[resourceId('Microsoft.Network/networkSecurityGroups', variables('securityGroupName'))]"
+        }
+      },
+
+      "resources": [],
+      "dependsOn": [
+        "[parameters('loadBalancerName')]"
+      ]
+    },
+    {
+      "type": "Microsoft.Network/loadBalancers",
+      "apiVersion": "2020-06-01",
+      "name": "[parameters('loadBalancerName')]",
+      "tags": "[parameters('resourceTags')]",
+      "location": "[parameters('location')]",
+      "sku": {
+        "name": "Standard"
+      },
+      "properties": {
+        "frontendIPConfigurations": [
+          {
+            "properties": {
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              },
+              "privateIPAddress": "10.100.100.100",
+              "privateIPAllocationMethod": "Static"
+            },
+            "name": "[variables('loadBalancerFrontendIP')]"
+          }
+        ],
+        "backendAddressPools": [
+          {
+            "name": "[variables('loadBalancerBackendAddressPool')]"
+          }
+        ],
+        "loadBalancingRules": [
+          {
+            "properties": {
+              "frontendIPConfiguration": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/frontendIpConfigurations', parameters('loadBalancerName'),variables('loadBalancerFrontendIP'))]"
+              },
+              "backendAddressPool": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/backendAddressPools', parameters('loadBalancerName'), variables('loadBalancerBackendAddressPool'))]"
+              },
+              "probe": {
+                "id": "[resourceId('Microsoft.Network/loadBalancers/probes', parameters('loadBalancerName'), variables('loadBalancerProbe'))]"
+              },
+              "protocol": "Tcp",
+              "frontendPort": 8983,
+              "backendPort": 8983,
+              "idleTimeoutInMinutes": 15
+            },
+            "Name": "[variables('loadBalancingRule')]"
+          }
+        ],
+        "probes": [
+          {
+            "properties": {
+              "protocol": "Tcp",
+              "port": 8983,
+              "intervalInSeconds": 15,
+              "numberOfProbes": 2
+            },
+            "name": "[variables('loadBalancerProbe')]"
+          }
+        ]
+      }
+    }
+  ]
+}
+

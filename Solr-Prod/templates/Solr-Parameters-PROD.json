@@ -1,0 +1,28 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "VmSize": {
+      "value": "Standard_D2s_v4"
+    },
+    "solrVersion": {
+      "value": "8.4.0"
+    },
+    "vnetRG": {
+      "value": "xxxxxxRG01"
+    },
+    "vnetName": {
+      "value": "xxxxxVNET01"
+    },
+    "subnetName": {
+      "value": "EDSSubnet"
+    },
+
+    "adminUsername": {
+      "value": "sitecore-solr-admin-username-fromKV"
+    },
+    "adminPassword": {
+      "value": "sitecore-solr-admin-password-fromKV"
+    }
+  }
+}
